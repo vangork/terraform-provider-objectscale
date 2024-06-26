@@ -56,4 +56,4 @@ release: clean client-build build
 	cp terraform-provider-objectscale terraform-provider-${NAME}_v${VERSION}
 	zip -j terraform-provider-${NAME}_${VERSION}_${OS_ARCH}.zip terraform-provider-${NAME}_v${VERSION} ./objectscale-client/target/release/libobjectscale_client.so
 	cp terraform-registry-manifest.json terraform-provider-${NAME}_${VERSION}_manifest.json
-	shasum -a 256 *.zip > terraform-provider-${NAME}_${VERSION}_SHA256SUMS
+	shasum -a 256 *.zip terraform-provider-${NAME}_${VERSION}_manifest.json > terraform-provider-${NAME}_${VERSION}_SHA256SUMS
