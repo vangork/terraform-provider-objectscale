@@ -3,3 +3,4 @@ terraform-provider-objectscale
 *.tfstate
 .terraform/
 .terraform.lock.hcl
+terraform-provider-objectscale_*

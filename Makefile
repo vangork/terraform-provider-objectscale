@@ -26,9 +26,6 @@ build:
 	go mod download
 	go build -o ${BINARY}
 
-release:
-	GOOS=linux GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_linux_amd64
-
 install: uninstall build
 	mkdir -p ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
 	mv ${BINARY} ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
@@ -51,5 +48,12 @@ client-build:
 	cd ./objectscale-client/golang && cargo build --release
 
 clean:
-	rm -rf ./objectscale-client
 	rm -f ${BINARY}
+	rm terraform-provider-${NAME}_*
+	rm -rf ./objectscale-client
+
+release: clean client-build build
+	cp terraform-provider-objectscale terraform-provider-${NAME}_v${VERSION}
+	zip -j terraform-provider-${NAME}_${VERSION}_${OS_ARCH}.zip terraform-provider-${NAME}_v${VERSION} ./objectscale-client/target/release/libobjectscale_client.so
+	cp terraform-registry-manifest.json terraform-provider-${NAME}_${VERSION}_manifest.json
+	shasum -a 256 *.zip > terraform-provider-${NAME}_${VERSION}_SHA256SUMS
