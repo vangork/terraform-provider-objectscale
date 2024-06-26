@@ -1,0 +1,5 @@
+/objectscale-client
+terraform-provider-objectscale
+*.tfstate
+.terraform/
+.terraform.lock.hcl
