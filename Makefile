@@ -29,6 +29,7 @@ build:
 install: uninstall build
 	mkdir -p ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
 	mv ${BINARY} ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
+	cp ./objectscale-client/target/release/libobjectscale_client.so ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
 
 uninstall:
 	rm -rfv ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
@@ -39,17 +40,13 @@ uninstall:
 	find examples -type f -name "*.backup" -delete
 	rm -rf trace.*
 
-no-extract-build: 
-	go mod download
-	go build -o ${BINARY}
-
 client-build: 
 	git clone -b main https://github.com/vangork/objectscale-client.git
 	cd ./objectscale-client/golang && cargo build --release
 
 clean:
 	rm -f ${BINARY}
-	rm terraform-provider-${NAME}_*
+	rm -f terraform-provider-${NAME}_*
 	rm -rf ./objectscale-client
 
 release: clean client-build build
