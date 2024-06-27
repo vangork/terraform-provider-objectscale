@@ -40,9 +40,9 @@ uninstall:
 	find examples -type f -name "*.backup" -delete
 	rm -rf trace.*
 
-client-build: 
+client-build: clean
 	git clone -b main https://github.com/vangork/objectscale-client.git
-	cd ./objectscale-client/golang && cargo build --release
+	cd ./objectscale-client/c && cargo build --release
 
 clean:
 	rm -f ${BINARY}
