@@ -5,7 +5,7 @@ go 1.22
 require (
 	github.com/hashicorp/terraform-plugin-framework v1.6.1
 	github.com/hashicorp/terraform-plugin-framework-validators v0.10.0
-	github.com/vangork/objectscale-client/golang v0.1.0
+	github.com/vangork/objectscale-client/golang v0.2.1
 )
 
 replace github.com/vangork/objectscale-client/golang => ./objectscale-client/golang
@@ -33,4 +33,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	google.golang.org/grpc v1.61.1 // indirect
 	google.golang.org/protobuf v1.32.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -9,7 +9,7 @@ terraform {
 provider "objectscale" {
   username = "root"
   password = "Password123@"
-  endpoint = "https://10.225.108.186:443"
+  endpoint = "https://10.225.108.189:443"
   insecure = true
 }
 

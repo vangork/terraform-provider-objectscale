@@ -101,7 +101,7 @@ func (d *AccountDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 
-	accounts, err := d.client.ObsClient.ListAccounts()
+	accounts, err := d.client.ManagementClient.ListAccounts()
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error getting the list of accounts",

@@ -5,7 +5,7 @@ import (
 )
 
 type Client struct {
-	ObsClient *objectscale.Client
+	ManagementClient *objectscale.ManagementClient
 }
 
 func NewClient(
@@ -14,13 +14,13 @@ func NewClient(
 	username string,
 	password string,
 ) (*Client, error) {
-	obsClient, err := objectscale.NewClient(endpoint, username, password, insecure)
+	managementClient, err := objectscale.NewManagementClient(endpoint, username, password, insecure)
 	if err != nil {
 		return nil, err
 	}
 
 	client := Client{
-		ObsClient: obsClient,
+		ManagementClient: managementClient,
 	}
 
 	return &client, nil
