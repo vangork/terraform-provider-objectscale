@@ -294,18 +294,18 @@ func (r *NamespaceResource) Schema(ctx context.Context, req resource.SchemaReque
 					"retention_class": schema.ListNestedAttribute{
 						Description:         "RetentionClass.",
 						MarkdownDescription: "RetentionClass.",
-						Computed:            true,
+						Required:            true,
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{
 								"name": schema.StringAttribute{
 									Description:         "Name",
 									MarkdownDescription: "Name",
-									Computed:            true,
+									Required:            true,
 								},
 								"period": schema.Int64Attribute{
 									Description:         "Period.",
 									MarkdownDescription: "Period.",
-									Computed:            true,
+									Required:            true,
 								},
 							},
 						},
@@ -357,8 +357,14 @@ func (r *NamespaceResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	retentionClasses := objectscale.RetionClasses{
+	retentionClasses := &objectscale.RetionClasses{
 		RetentionClass: []objectscale.RetionClass{},
+	}
+	if !plan.RetentionClasses.IsUnknown() {
+		if err := helper.AssignObjectToField(ctx, plan.RetentionClasses, retentionClasses); err != nil {
+			resp.Diagnostics.AddError("error parsing retention classes", err.Error())
+			return
+		}
 	}
 	// for _, v := range plan.RetentionClasses.Attributes()["retention_class"].ToTerraformValue(ctx).As {
 	// 	retentionClasses.RetentionClass = append(retentionClasses.RetentionClass, objectscale.RetionClass{
@@ -368,7 +374,17 @@ func (r *NamespaceResource) Create(ctx context.Context, req resource.CreateReque
 	// }
 	// tflog.Info(ctx, "creating namespace1111111")
 	userMapping := []objectscale.UserMapping{}
-	// for _, v := range data.UserMapping {
+	// var userMappings []models.UserMapping
+
+	// if !plan.UserMapping.IsNull() && !plan.UserMapping.IsUnknown() {
+	// 	diags := plan.UserMapping.ElementsAs(ctx, &userMappings, false)
+	// 	if diags.HasError() {
+	// 		resp.Diagnostics.Append(diags...)
+	// 		return
+	// 	}
+	// }
+
+	// for _, v := range userMappings {
 	// 	groups := []string{}
 	// 	for _, g := range v.Groups {
 	// 		groups = append(groups, g.ValueString())
@@ -410,7 +426,7 @@ func (r *NamespaceResource) Create(ctx context.Context, req resource.CreateReque
 		BlockSizeInCount:             plan.BlockSizeInCount.ValueInt64(),
 		DefaultAuditDeleteExpiration: plan.DefaultAuditDeleteExpiration.ValueInt64(),
 
-		RetentionClasses:     retentionClasses,
+		RetentionClasses:     *retentionClasses,
 		UserMapping:          userMapping,
 		AllowedVpoolsList:    []string{},
 		DisallowedVpoolsList: []string{},

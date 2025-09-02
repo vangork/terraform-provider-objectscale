@@ -6,10 +6,12 @@ import (
 	"math"
 	"math/big"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -244,4 +246,219 @@ func copySliceToTargetField(ctx context.Context, fields interface{}) types.List 
 		return listValue
 	}
 	return types.ListUnknown(types.StringType)
+}
+
+func AssignObjectToField(ctx context.Context, source basetypes.ObjectValue, destination interface{}) error {
+	destElemType := reflect.TypeOf(destination).Elem()
+	isPtr := false
+	if destElemType.Kind() == reflect.Ptr {
+		isPtr = true
+		destElemType = destElemType.Elem()
+	}
+	targetObject := reflect.New(destElemType).Elem()
+	attrMap := source.Attributes()
+	for key, val := range attrMap {
+		destinationField, err := getFieldByJSONTag(targetObject.Addr().Interface(), key)
+		if err != nil {
+			// skip current field
+			continue
+		}
+		if destinationField.IsValid() && destinationField.CanSet() {
+			switch val.Type(ctx) {
+			case basetypes.StringType{}:
+				stringVal, ok := val.(basetypes.StringValue)
+				if !ok || stringVal.IsNull() || stringVal.IsUnknown() {
+					continue
+				}
+				targetValue := stringVal.ValueString()
+				if destinationField.Kind() == reflect.Ptr && destinationField.Type().Elem().Kind() == reflect.String {
+					destinationField.Set(reflect.ValueOf(&targetValue))
+				}
+				if destinationField.Type().Kind() == reflect.String {
+					destinationField.Set(reflect.ValueOf(targetValue))
+				}
+			case basetypes.Int64Type{}:
+				intVal, ok := val.(basetypes.Int64Value)
+				if !ok || intVal.IsNull() || intVal.IsUnknown() {
+					continue
+				}
+				if destinationField.Kind() == reflect.Int64 {
+					destinationField.Set(reflect.ValueOf(intVal.ValueInt64()))
+				}
+				if destinationField.Kind() == reflect.Ptr && destinationField.Type().Elem().Kind() == reflect.Int64 {
+					destinationField.Set(reflect.ValueOf(intVal.ValueInt64Pointer()))
+				}
+				if destinationField.Kind() == reflect.Int32 {
+					destinationField.Set(reflect.ValueOf(int32(intVal.ValueInt64())))
+				}
+				if destinationField.Kind() == reflect.Ptr && destinationField.Type().Elem().Kind() == reflect.Int32 {
+					val := int32(intVal.ValueInt64())
+					destinationField.Set(reflect.ValueOf(&val))
+				}
+			case basetypes.BoolType{}:
+				boolVal, ok := val.(basetypes.BoolValue)
+				if !ok || boolVal.IsNull() || boolVal.IsUnknown() {
+					continue
+				}
+				if destinationField.Kind() == reflect.Ptr {
+					destinationField.Set(reflect.ValueOf(boolVal.ValueBoolPointer()))
+				} else {
+					destinationField.Set(reflect.ValueOf(boolVal.ValueBool()))
+				}
+			case basetypes.NumberType{}:
+				floatVal, ok := val.(basetypes.NumberValue)
+				if !ok || floatVal.IsNull() || floatVal.IsUnknown() {
+					continue
+				}
+				bigFloat := floatVal.ValueBigFloat()
+				if destinationField.Kind() == reflect.Ptr {
+					if destinationField.Type().Elem().Kind() == reflect.Float64 {
+						bigFloatVal, _ := bigFloat.Float64()
+						floatVal, _ := strconv.ParseFloat(fmt.Sprintf("%.4f", bigFloatVal), 64)
+						destinationField.Set(reflect.ValueOf(&floatVal))
+					}
+					if destinationField.Type().Elem().Kind() == reflect.Float32 {
+						bigFloatVal, _ := bigFloat.Float32()
+						floatVal, _ := strconv.ParseFloat(fmt.Sprintf("%.4f", bigFloatVal), 32)
+						float32Val := float32(floatVal)
+						destinationField.Set(reflect.ValueOf(&float32Val))
+					}
+				} else {
+					if destinationField.Kind() == reflect.Float64 {
+						bigFloatVal, _ := bigFloat.Float64()
+						floatVal, _ := strconv.ParseFloat(fmt.Sprintf("%.4f", bigFloatVal), 64)
+						destinationField.Set(reflect.ValueOf(floatVal))
+					}
+					if destinationField.Kind() == reflect.Float32 {
+						bigFloatVal, _ := bigFloat.Float32()
+						floatVal, _ := strconv.ParseFloat(fmt.Sprintf("%.4f", bigFloatVal), 32)
+						destinationField.Set(reflect.ValueOf(float32(floatVal)))
+					}
+				}
+			default:
+				typeString := val.Type(ctx).String()
+				if strings.HasPrefix(typeString, "types.ObjectType") {
+					objVal, ok := val.(basetypes.ObjectValue)
+					if !ok || objVal.IsNull() || objVal.IsUnknown() {
+						continue
+					}
+					err := AssignObjectToField(ctx, objVal, destinationField.Addr().Interface())
+					if err != nil {
+						return err
+					}
+				} else if strings.HasPrefix(typeString, "types.ListType") {
+					listVal, ok := val.(basetypes.ListValue)
+					if !ok || listVal.IsNull() || listVal.IsUnknown() {
+						continue
+					}
+					list, err := getFieldListVal(ctx, listVal, destinationField.Interface())
+					if err != nil {
+						return err
+					}
+					if reflect.TypeOf(destinationField.Interface()).Kind() == reflect.Ptr {
+						destinationField.Set(reflect.New(destinationField.Type().Elem()))
+						destinationField.Elem().Set(list)
+					} else {
+						destinationField.Set(list)
+					}
+				}
+			}
+		}
+	}
+	if isPtr {
+		reflect.ValueOf(destination).Elem().Set(targetObject.Addr())
+	} else {
+		reflect.ValueOf(destination).Elem().Set(targetObject)
+	}
+	return nil
+}
+
+func getFieldByJSONTag(destination interface{}, tag string) (reflect.Value, error) {
+	destElemVal := reflect.ValueOf(destination).Elem()
+	destElemType := destElemVal.Type()
+
+	for i := 0; i < destElemType.NumField(); i++ {
+		field := destElemType.Field(i)
+		jsonTag := field.Tag.Get("tf")
+		// if strings.Contains(jsonTag, ",") {
+		// 	jsonTag = strings.TrimSuffix(jsonTag, ",omitempty")
+		// }
+		if jsonTag == tag {
+			return destElemVal.Field(i), nil
+		}
+	}
+
+	return reflect.Value{}, fmt.Errorf("field with tag %s not found in destination", tag)
+}
+
+func getFieldListVal(ctx context.Context, source basetypes.ListValue, destination interface{}) (reflect.Value, error) {
+	destType := reflect.TypeOf(destination)
+	if destType.Kind() == reflect.Ptr {
+		destType = destType.Elem()
+	}
+	listLen := len(source.Elements())
+	targetList := reflect.MakeSlice(destType, listLen, listLen)
+	listElemType := source.ElementType(ctx)
+	for i, listElem := range source.Elements() {
+		switch listElemType {
+		case basetypes.StringType{}:
+			strVal, ok := listElem.(basetypes.StringValue)
+			if !ok || strVal.IsNull() || strVal.IsUnknown() {
+				continue
+			}
+			if destType.Elem().Kind() == reflect.Ptr {
+				targetList.Index(i).Elem().Set(reflect.ValueOf(strVal.ValueStringPointer()))
+			} else {
+				targetList.Index(i).Set(reflect.ValueOf(strVal.ValueString()))
+			}
+		case basetypes.Int64Type{}:
+			strVal, ok := listElem.(basetypes.Int64Value)
+			if !ok || strVal.IsNull() || strVal.IsUnknown() {
+				continue
+			}
+			if destType.Elem().Kind() == reflect.Ptr {
+				targetList.Index(i).Elem().Set(reflect.ValueOf(strVal.ValueInt64Pointer()))
+			} else {
+				targetList.Index(i).Set(reflect.ValueOf(strVal.ValueInt64()))
+			}
+		case basetypes.BoolType{}:
+			strVal, ok := listElem.(basetypes.BoolValue)
+			if !ok || strVal.IsNull() || strVal.IsUnknown() {
+				continue
+			}
+			if destType.Elem().Kind() == reflect.Ptr {
+				targetList.Index(i).Elem().Set(reflect.ValueOf(strVal.ValueBoolPointer()))
+			} else {
+				targetList.Index(i).Set(reflect.ValueOf(strVal.ValueBool()))
+			}
+		default:
+			typeString := listElemType.String()
+			if strings.HasPrefix(typeString, "types.ListType") {
+				listVal, ok := listElem.(basetypes.ListValue)
+				if !ok || listVal.IsNull() || listVal.IsUnknown() {
+					continue
+				}
+				val, err := getFieldListVal(ctx, listVal, targetList.Index(i).Interface())
+				if err != nil {
+					return targetList, err
+				}
+				if reflect.TypeOf(targetList.Index(i).Interface()).Kind() == reflect.Ptr {
+					targetList.Index(i).Set(reflect.New(targetList.Index(i).Type().Elem()))
+					targetList.Index(i).Elem().Set(val)
+				} else {
+					targetList.Index(i).Set(val)
+				}
+			} else if strings.HasPrefix(typeString, "types.ObjectType") {
+				objVal, ok := listElem.(basetypes.ObjectValue)
+				if !ok || objVal.IsNull() || objVal.IsUnknown() {
+					continue
+				}
+				err := AssignObjectToField(ctx, objVal, targetList.Index(i).Addr().Interface())
+				if err != nil {
+					return targetList, err
+				}
+			}
+		}
+	}
+	return targetList, nil
 }
