@@ -19,7 +19,7 @@ package provider
 
 import (
 	"context"
-	"terraform-provider-objectscale/client"
+	"terraform-provider-objectscale/internal/client"
 
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 
@@ -126,7 +126,9 @@ func (p *ObjectScaleProvider) Configure(ctx context.Context, req provider.Config
 
 // Resources describes the provider resources.
 func (p *ObjectScaleProvider) Resources(ctx context.Context) []func() resource.Resource {
-	return []func() resource.Resource{}
+	return []func() resource.Resource{
+		NewNamespaceResource,
+	}
 }
 
 // DataSources describes the provider data sources.

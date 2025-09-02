@@ -151,8 +151,8 @@ func CopyFields(ctx context.Context, source, destination interface{}) error {
 }
 
 func getFieldJSONTag(sourceValue reflect.Value, i int) string {
-	sourceFieldTag := sourceValue.Type().Field(i).Tag.Get("json")
-	sourceFieldTag = strings.TrimSuffix(sourceFieldTag, ",omitempty")
+	sourceFieldTag := sourceValue.Type().Field(i).Tag.Get("tf")
+	//sourceFieldTag = strings.TrimSuffix(sourceFieldTag, ",omitempty")
 	return sourceFieldTag
 }
 
