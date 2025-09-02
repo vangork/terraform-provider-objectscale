@@ -24,8 +24,8 @@ resource "objectscale_namespace" "example" {
   }
   user_mapping = [{
     attributes = [{
-      key = "key"
-      value = ["value"]
+      key = "key1"
+      value = ["value1"]
     }]
     domain =  "domain"
     groups = ["group"]

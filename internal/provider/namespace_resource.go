@@ -34,8 +34,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-
-	objectscale "github.com/vangork/objectscale-client/golang/pkg"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -357,84 +355,13 @@ func (r *NamespaceResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	retentionClasses := &objectscale.RetionClasses{
-		RetentionClass: []objectscale.RetionClass{},
-	}
-	if !plan.RetentionClasses.IsUnknown() {
-		if err := helper.AssignObjectToField(ctx, plan.RetentionClasses, retentionClasses); err != nil {
-			resp.Diagnostics.AddError("error parsing retention classes", err.Error())
-			return
-		}
+	namespace, err := helper.BuildNamespaceFromPlan(ctx, &plan)
+	if err != nil {
+		resp.Diagnostics.AddError("Error building namespace from plan", err.Error())
+		return
 	}
 
-	userMapping := []objectscale.UserMapping{}
-
-	if !plan.UserMapping.IsNull() && !plan.UserMapping.IsUnknown() {
-		var userMappingList []models.UserMappingResource
-		diags := plan.UserMapping.ElementsAs(ctx, &userMappingList, false)
-		if diags.HasError() {
-			resp.Diagnostics.Append(diags...)
-			return
-		}
-
-		for _, userMappingItem := range userMappingList {
-			item := &objectscale.UserMapping{}
-
-			if err := helper.ReadFromState(ctx, userMappingItem, item); err != nil {
-				resp.Diagnostics.AddError("error parsing user mapping", err.Error())
-				return
-			}
-
-			var attributeList []models.AttributeResource
-			diags := userMappingItem.Attributes.ElementsAs(ctx, &attributeList, false)
-			if diags.HasError() {
-				resp.Diagnostics.Append(diags...)
-				return
-			}
-
-			attributes := []objectscale.Attribute{}
-			for _, attributeItem := range attributeList {
-				item := &objectscale.Attribute{}
-
-				if err := helper.ReadFromState(ctx, attributeItem, item); err != nil {
-					resp.Diagnostics.AddError("error parsing attribute", err.Error())
-					return
-				}
-				attributes = append(attributes, *item)
-			}
-			item.Attributes = attributes
-
-			userMapping = append(userMapping, *item)
-		}
-	}
-
-	namespace := &objectscale.Namespace{
-		Name:                     plan.Name.ValueString(),
-		DefaultDataServicesVpool: plan.DefaultDataServicesVpool.ValueString(),
-
-		NamespaceAdmins:              plan.NamespaceAdmins.ValueString(),
-		IsEncryptionEnabled:          plan.IsEncryptionEnabled.ValueBool(),
-		DefaultBucketBlockSize:       plan.DefaultBucketBlockSize.ValueInt64(),
-		ExternalGroupAdmins:          plan.ExternalGroupAdmins.ValueString(),
-		IsStaleAllowed:               plan.IsStaleAllowed.ValueBool(),
-		IsObjectLockWithAdoAllowed:   plan.IsObjectLockWithAdoAllowed.ValueBool(),
-		IsComplianceEnabled:          plan.IsComplianceEnabled.ValueBool(),
-		NotificationSize:             plan.NotificationSize.ValueInt64(),
-		BlockSize:                    plan.BlockSize.ValueInt64(),
-		NotificationSizeInCount:      plan.NotificationSizeInCount.ValueInt64(),
-		BlockSizeInCount:             plan.BlockSizeInCount.ValueInt64(),
-		DefaultAuditDeleteExpiration: plan.DefaultAuditDeleteExpiration.ValueInt64(),
-
-		RetentionClasses:     *retentionClasses,
-		UserMapping:          userMapping,
-		AllowedVpoolsList:    []string{},
-		DisallowedVpoolsList: []string{},
-	}
-
-	newNamespace := fmt.Sprintf("declared namespace: %v\n", namespace)
-	tflog.Info(ctx, newNamespace)
-
-	namespace, err := r.client.ManagementClient.CreateNamespace(namespace)
+	namespace, err = r.client.ManagementClient.CreateNamespace(namespace)
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating namespace", err.Error())
@@ -487,22 +414,57 @@ func (r *NamespaceResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 func (r *NamespaceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	tflog.Info(ctx, "updating namespace")
-	var data models.NamespaceEntity
+	var plan models.NamespaceResourceModel
 
 	// Read Terraform plan data into the model
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// If applicable, this is a great opportunity to initialize any necessary
-	// provider client data and make a call using it.
-	// httpResp, err := r.client.Do(httpReq)
-	// if err != nil {
-	//     resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update example, got error: %s", err))
-	//     return
-	// }
+	namespace, err := helper.BuildNamespaceFromPlan(ctx, &plan)
+	if err != nil {
+		resp.Diagnostics.AddError("Error building namespace from plan", err.Error())
+		return
+	}
+	// To update the Id whose value does not exist in the plan from the state.
+	// For the rest of the non-existing fields' value in the plan won't impact the update result,
+	// as the update API would check the difference of the local value and remote value internally,
+	// it would use the Id to retrieve the remote value,
+	// and the non change value won't trigger the update
+	// For the update API, it should use the same get API to get the remote value,
+	// so just to refer get API definition to make sure all the required fields have the value assigned
+	var data models.NamespaceEntity
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	namespace.Id = data.Id.ValueString()
+
+	// TODO: To prevent the non-updatable fields from being changed
+
+	_, err = r.client.ManagementClient.UpdateNamespace(namespace)
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating namespace", err.Error())
+		return
+	}
+
+	namespace, err = r.client.ManagementClient.GetNamespace(namespace.Id)
+
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading namespace", err.Error())
+		return
+	}
+
+	err = helper.CopyFields(ctx, namespace, &data)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error converting read namespace",
+			err.Error(),
+		)
+		return
+	}
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -540,8 +502,8 @@ func (r *NamespaceResource) ImportState(ctx context.Context, req resource.Import
 		return
 	}
 
-	entity := models.NamespaceEntity{}
-	err = helper.CopyFields(ctx, namespace, &entity)
+	data := models.NamespaceEntity{}
+	err = helper.CopyFields(ctx, namespace, &data)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error converting imported namespace",
@@ -550,5 +512,5 @@ func (r *NamespaceResource) ImportState(ctx context.Context, req resource.Import
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, &entity)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

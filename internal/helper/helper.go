@@ -248,7 +248,7 @@ func copySliceToTargetField(ctx context.Context, fields interface{}) types.List 
 	return types.ListUnknown(types.StringType)
 }
 
-func AssignObjectToField(ctx context.Context, source basetypes.ObjectValue, destination interface{}) error {
+func assignObjectToField(ctx context.Context, source basetypes.ObjectValue, destination interface{}) error {
 	destElemType := reflect.TypeOf(destination).Elem()
 	isPtr := false
 	if destElemType.Kind() == reflect.Ptr {
@@ -342,7 +342,7 @@ func AssignObjectToField(ctx context.Context, source basetypes.ObjectValue, dest
 					if !ok || objVal.IsNull() || objVal.IsUnknown() {
 						continue
 					}
-					err := AssignObjectToField(ctx, objVal, destinationField.Addr().Interface())
+					err := assignObjectToField(ctx, objVal, destinationField.Addr().Interface())
 					if err != nil {
 						return err
 					}
@@ -453,7 +453,7 @@ func getFieldListVal(ctx context.Context, source basetypes.ListValue, destinatio
 				if !ok || objVal.IsNull() || objVal.IsUnknown() {
 					continue
 				}
-				err := AssignObjectToField(ctx, objVal, targetList.Index(i).Addr().Interface())
+				err := assignObjectToField(ctx, objVal, targetList.Index(i).Addr().Interface())
 				if err != nil {
 					return targetList, err
 				}
@@ -464,7 +464,7 @@ func getFieldListVal(ctx context.Context, source basetypes.ListValue, destinatio
 }
 
 // ReadFromState read from model to openapi struct, model should not contain nested struct.
-func ReadFromState(ctx context.Context, source, destination interface{}) error {
+func readFromState(ctx context.Context, source, destination interface{}) error {
 	sourceValue := reflect.ValueOf(source)
 	destinationValue := reflect.ValueOf(destination)
 	if destinationValue.Kind() != reflect.Ptr || destinationValue.Elem().Kind() != reflect.Struct {
@@ -560,7 +560,7 @@ func ReadFromState(ctx context.Context, source, destination interface{}) error {
 				if !ok || objVal.IsNull() || objVal.IsUnknown() {
 					continue
 				}
-				err := AssignObjectToField(ctx, objVal, destinationField.Addr().Interface())
+				err := assignObjectToField(ctx, objVal, destinationField.Addr().Interface())
 				if err != nil {
 					return err
 				}
