@@ -155,3 +155,19 @@ type NamespaceResourceModel struct {
 	// root user password.
 	RootUserPassword types.String `tfsdk:"root_user_password"`
 }
+
+type UserMappingResource struct {
+	// A single-valued attribute indicating the user's IDP domain
+	Domain types.String `tfsdk:"domain"`
+	// Attributes
+	Attributes types.List `tfsdk:"attributes"`
+	// Groups
+	Groups types.List `tfsdk:"groups"`
+}
+
+type AttributeResource struct {
+	// Lookup string for this key-value pair
+	Key types.String `tfsdk:"key"`
+	// Lookup result for this key-value pair
+	Value types.List `tfsdk:"value"`
+}

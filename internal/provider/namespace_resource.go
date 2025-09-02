@@ -366,48 +366,47 @@ func (r *NamespaceResource) Create(ctx context.Context, req resource.CreateReque
 			return
 		}
 	}
-	// for _, v := range plan.RetentionClasses.Attributes()["retention_class"].ToTerraformValue(ctx).As {
-	// 	retentionClasses.RetentionClass = append(retentionClasses.RetentionClass, objectscale.RetionClass{
-	// 		Name:   v.Name.ValueString(),
-	// 		Period: v.Period.ValueInt64(),
-	// 	})
-	// }
-	// tflog.Info(ctx, "creating namespace1111111")
+
 	userMapping := []objectscale.UserMapping{}
-	// var userMappings []models.UserMapping
 
-	// if !plan.UserMapping.IsNull() && !plan.UserMapping.IsUnknown() {
-	// 	diags := plan.UserMapping.ElementsAs(ctx, &userMappings, false)
-	// 	if diags.HasError() {
-	// 		resp.Diagnostics.Append(diags...)
-	// 		return
-	// 	}
-	// }
+	if !plan.UserMapping.IsNull() && !plan.UserMapping.IsUnknown() {
+		var userMappingList []models.UserMappingResource
+		diags := plan.UserMapping.ElementsAs(ctx, &userMappingList, false)
+		if diags.HasError() {
+			resp.Diagnostics.Append(diags...)
+			return
+		}
 
-	// for _, v := range userMappings {
-	// 	groups := []string{}
-	// 	for _, g := range v.Groups {
-	// 		groups = append(groups, g.ValueString())
-	// 	}
+		for _, userMappingItem := range userMappingList {
+			item := &objectscale.UserMapping{}
 
-	// 	attributes := []objectscale.Attribute{}
-	// 	for _, a := range v.Attributes {
-	// 		value := []string{}
-	// 		for _, v := range a.Value {
-	// 			value = append(value, v.ValueString())
-	// 		}
-	// 		attributes = append(attributes, objectscale.Attribute{
-	// 			Key:   a.Key.ValueString(),
-	// 			Value: value,
-	// 		})
-	// 	}
+			if err := helper.ReadFromState(ctx, userMappingItem, item); err != nil {
+				resp.Diagnostics.AddError("error parsing user mapping", err.Error())
+				return
+			}
 
-	// 	userMapping = append(userMapping, objectscale.UserMapping{
-	// 		Domain:    v.Domain.ValueString(),
-	// 		Groups:    groups,
-	// 		Attributes: attributes,
-	// 	})
-	// }
+			var attributeList []models.AttributeResource
+			diags := userMappingItem.Attributes.ElementsAs(ctx, &attributeList, false)
+			if diags.HasError() {
+				resp.Diagnostics.Append(diags...)
+				return
+			}
+
+			attributes := []objectscale.Attribute{}
+			for _, attributeItem := range attributeList {
+				item := &objectscale.Attribute{}
+
+				if err := helper.ReadFromState(ctx, attributeItem, item); err != nil {
+					resp.Diagnostics.AddError("error parsing attribute", err.Error())
+					return
+				}
+				attributes = append(attributes, *item)
+			}
+			item.Attributes = attributes
+
+			userMapping = append(userMapping, *item)
+		}
+	}
 
 	namespace := &objectscale.Namespace{
 		Name:                     plan.Name.ValueString(),
@@ -436,9 +435,6 @@ func (r *NamespaceResource) Create(ctx context.Context, req resource.CreateReque
 	tflog.Info(ctx, newNamespace)
 
 	namespace, err := r.client.ManagementClient.CreateNamespace(namespace)
-
-	createdNamespace := fmt.Sprintf("created namespace: %v\n", namespace)
-	tflog.Info(ctx, createdNamespace)
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating namespace", err.Error())

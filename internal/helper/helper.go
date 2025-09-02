@@ -462,3 +462,125 @@ func getFieldListVal(ctx context.Context, source basetypes.ListValue, destinatio
 	}
 	return targetList, nil
 }
+
+// ReadFromState read from model to openapi struct, model should not contain nested struct.
+func ReadFromState(ctx context.Context, source, destination interface{}) error {
+	sourceValue := reflect.ValueOf(source)
+	destinationValue := reflect.ValueOf(destination)
+	if destinationValue.Kind() != reflect.Ptr || destinationValue.Elem().Kind() != reflect.Struct {
+		return fmt.Errorf("destination is not a pointer to a struct")
+	}
+	if sourceValue.Kind() == reflect.Ptr {
+		sourceValue = sourceValue.Elem()
+	}
+	if sourceValue.Kind() != reflect.Struct {
+		return fmt.Errorf("source is not a struct")
+	}
+	for i := 0; i < sourceValue.NumField(); i++ {
+		sourceFieldTag := sourceValue.Type().Field(i).Tag.Get("tfsdk")
+		destinationField, err := getFieldByJSONTag(destinationValue.Elem().Addr().Interface(), sourceFieldTag)
+		if err != nil {
+			// Not found, skip the field
+			continue
+		}
+		if destinationField.IsValid() && destinationField.CanSet() {
+			switch sourceValue.Field(i).Interface().(type) {
+			case basetypes.StringValue:
+				stringVal, ok := sourceValue.Field(i).Interface().(basetypes.StringValue)
+				if !ok || stringVal.IsNull() || stringVal.IsUnknown() {
+					continue
+				}
+				targetValue := stringVal.ValueString()
+				if destinationField.Kind() == reflect.Ptr && destinationField.Type().Elem().Kind() == reflect.String {
+					destinationField.Set(reflect.ValueOf(&targetValue))
+				}
+				if destinationField.Type().Kind() == reflect.String {
+					destinationField.Set(reflect.ValueOf(targetValue))
+				}
+			case basetypes.Int64Value:
+				intVal, ok := sourceValue.Field(i).Interface().(basetypes.Int64Value)
+				if !ok || intVal.IsNull() || intVal.IsUnknown() {
+					continue
+				}
+				if destinationField.Kind() == reflect.Int64 {
+					destinationField.Set(reflect.ValueOf(intVal.ValueInt64()))
+				}
+				if destinationField.Kind() == reflect.Ptr && destinationField.Type().Elem().Kind() == reflect.Int64 {
+					destinationField.Set(reflect.ValueOf(intVal.ValueInt64Pointer()))
+				}
+				if destinationField.Kind() == reflect.Int32 {
+					destinationField.Set(reflect.ValueOf(int32(intVal.ValueInt64())))
+				}
+				if destinationField.Kind() == reflect.Ptr && destinationField.Type().Elem().Kind() == reflect.Int32 {
+					val := int32(intVal.ValueInt64())
+					destinationField.Set(reflect.ValueOf(&val))
+				}
+			case basetypes.BoolValue:
+				boolVal, ok := sourceValue.Field(i).Interface().(basetypes.BoolValue)
+				if !ok || boolVal.IsNull() || boolVal.IsUnknown() {
+					continue
+				}
+				if destinationField.Kind() == reflect.Ptr {
+					destinationField.Set(reflect.ValueOf(boolVal.ValueBoolPointer()))
+				} else {
+					destinationField.Set(reflect.ValueOf(boolVal.ValueBool()))
+				}
+			case basetypes.NumberValue:
+				floatVal, ok := sourceValue.Field(i).Interface().(basetypes.NumberValue)
+				if !ok || floatVal.IsNull() || floatVal.IsUnknown() {
+					continue
+				}
+				bigFloat := floatVal.ValueBigFloat()
+				if destinationField.Kind() == reflect.Ptr {
+					if destinationField.Type().Elem().Kind() == reflect.Float64 {
+						bigFloatVal, _ := bigFloat.Float64()
+						floatVal, _ := strconv.ParseFloat(fmt.Sprintf("%.4f", bigFloatVal), 64)
+						destinationField.Set(reflect.ValueOf(&floatVal))
+					}
+					if destinationField.Type().Elem().Kind() == reflect.Float32 {
+						bigFloatVal, _ := bigFloat.Float32()
+						floatVal, _ := strconv.ParseFloat(fmt.Sprintf("%.4f", bigFloatVal), 32)
+						float32Val := float32(floatVal)
+						destinationField.Set(reflect.ValueOf(&float32Val))
+					}
+				} else {
+					if destinationField.Kind() == reflect.Float64 {
+						bigFloatVal, _ := bigFloat.Float64()
+						floatVal, _ := strconv.ParseFloat(fmt.Sprintf("%.4f", bigFloatVal), 64)
+						destinationField.Set(reflect.ValueOf(floatVal))
+					}
+					if destinationField.Kind() == reflect.Float32 {
+						bigFloatVal, _ := bigFloat.Float32()
+						floatVal, _ := strconv.ParseFloat(fmt.Sprintf("%.4f", bigFloatVal), 32)
+						destinationField.Set(reflect.ValueOf(float32(floatVal)))
+					}
+				}
+			case basetypes.ObjectValue:
+				objVal, ok := sourceValue.Field(i).Interface().(basetypes.ObjectValue)
+				if !ok || objVal.IsNull() || objVal.IsUnknown() {
+					continue
+				}
+				err := AssignObjectToField(ctx, objVal, destinationField.Addr().Interface())
+				if err != nil {
+					return err
+				}
+			case basetypes.ListValue:
+				listVal, ok := sourceValue.Field(i).Interface().(basetypes.ListValue)
+				if !ok || listVal.IsNull() || listVal.IsUnknown() {
+					continue
+				}
+				list, err := getFieldListVal(ctx, listVal, destinationField.Interface())
+				if err != nil {
+					return err
+				}
+				if reflect.TypeOf(destinationField.Interface()).Kind() == reflect.Ptr {
+					destinationField.Set(reflect.New(destinationField.Type().Elem()))
+					destinationField.Elem().Set(list)
+				} else {
+					destinationField.Set(list)
+				}
+			}
+		}
+	}
+	return nil
+}

@@ -22,4 +22,12 @@ resource "objectscale_namespace" "example" {
       period = 1
     }]
   }
+  user_mapping = [{
+    attributes = [{
+      key = "key"
+      value = ["value"]
+    }]
+    domain =  "domain"
+    groups = ["group"]
+  }]
 }
