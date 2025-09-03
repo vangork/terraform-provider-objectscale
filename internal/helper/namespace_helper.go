@@ -9,8 +9,8 @@ import (
 )
 
 func BuildNamespaceFromPlan(ctx context.Context, plan *models.NamespaceResourceModel) (*objectscale.Namespace, error) {
-	retentionClasses := &objectscale.RetionClasses{
-		RetentionClass: []objectscale.RetionClass{},
+	retentionClasses := &objectscale.RetentionClasses{
+		RetentionClass: []objectscale.RetentionClass{},
 	}
 	if !plan.RetentionClasses.IsUnknown() {
 		if err := assignObjectToField(ctx, plan.RetentionClasses, retentionClasses); err != nil {

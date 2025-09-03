@@ -57,7 +57,7 @@ type NamespaceEntity struct {
 	// Default bucket audit delete expiration. Updatable
 	DefaultAuditDeleteExpiration types.Int64 `tfsdk:"default_audit_delete_expiration"`
 	// retention classes. Updatable
-	RetentionClasses RetionClasses `tfsdk:"retention_classes"`
+	RetentionClasses RetentionClasses `tfsdk:"retention_classes"`
 	// root user name
 	RootUserName types.String `tfsdk:"root_user_name"`
 	// root user password.
@@ -87,12 +87,12 @@ type Attribute struct {
 	Value types.List `tfsdk:"value"`
 }
 
-type RetionClasses struct {
+type RetentionClasses struct {
 	// Retention class, add and update only
-	RetentionClass []RetionClass `tfsdk:"retention_class"`
+	RetentionClass []RetentionClass `tfsdk:"retention_class"`
 }
 
-type RetionClass struct {
+type RetentionClass struct {
 	// Name of the retention class
 	Name types.String `tfsdk:"name"`
 	// Period of the retention class in seconds
