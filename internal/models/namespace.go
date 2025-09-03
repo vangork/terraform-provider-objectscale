@@ -34,11 +34,11 @@ type NamespaceEntity struct {
 	NamespaceAdmins types.String `tfsdk:"namespace_admins"`
 	// User Mapping. Updatable
 	UserMapping []UserMapping `tfsdk:"user_mapping"`
-	// encryption status of the namesapce
+	// encryption status of the namesapce. Default: false.
 	IsEncryptionEnabled types.Bool `tfsdk:"is_encryption_enabled"`
 	// Default bucket quota size. Default: -1. Updatable.
 	DefaultBucketBlockSize types.Int64 `tfsdk:"default_bucket_block_size"`
-	// List of groups from AD Server. Updatable
+	// List of groups from AD Server. Default: "". Updatable
 	ExternalGroupAdmins types.String `tfsdk:"external_group_admins"`
 	// Namespace isStaleAllowed flag. Default: false. Updatable.
 	IsStaleAllowed types.Bool `tfsdk:"is_stale_allowed"`

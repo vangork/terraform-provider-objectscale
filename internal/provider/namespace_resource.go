@@ -442,7 +442,13 @@ func (r *NamespaceResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 	namespace.Id = data.Id.ValueString()
 
-	// TODO: To prevent the non-updatable fields from being changed
+	// To prevent the non-updatable fields from being changed
+	if namespace.Name != data.Name.ValueString() ||
+		namespace.IsComplianceEnabled != data.IsComplianceEnabled.ValueBool() ||
+		namespace.IsEncryptionEnabled != data.IsEncryptionEnabled.ValueBool() {
+		resp.Diagnostics.AddError("Error updating namespace", "Fields of `name`, `is_compliance_enabled` and `is_encryption_enabled` are not updatable")
+		return
+	}
 
 	_, err = r.client.ManagementClient.UpdateNamespace(namespace)
 	if err != nil {
