@@ -10,9 +10,9 @@ type Client struct {
 
 func NewClient(
 	endpoint string,
-	insecure bool,
 	username string,
 	password string,
+	insecure bool,
 ) (*Client, error) {
 	managementClient, err := objectscale.NewManagementClient(endpoint, username, password, insecure)
 	if err != nil {

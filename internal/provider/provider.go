@@ -19,7 +19,7 @@ package provider
 
 import (
 	"context"
-	"terraform-provider-objectscale/client"
+	"terraform-provider-objectscale/internal/client"
 
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 
@@ -31,23 +31,19 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// Ensure ObsProvider satisfies various provider interfaces.
-var _ provider.Provider = &ObsProvider{}
+// Ensure ObjectScaleProvider satisfies various provider interfaces.
+var _ provider.Provider = &ObjectScaleProvider{}
 
-// ObsProvider defines the provider implementation.
-type ObsProvider struct {
-	// client can contain the upstream provider SDK or HTTP client used to
-	// communicate with the upstream service. Resource and DataSource
-	// implementations can then make calls using this client.
-
+// ObjectScaleProvider defines the provider implementation.
+type ObjectScaleProvider struct {
 	// version is set to the provider version on release, "dev" when the
 	// provider is built and ran locally, and "test" when running acceptance
 	// testing.
 	version string
 }
 
-// Data describes the provider data model.
-type Data struct {
+// ObjectScaleProviderModel describes the provider data model.
+type ObjectScaleProviderModel struct {
 	Endpoint types.String `tfsdk:"endpoint"`
 	Username types.String `tfsdk:"username"`
 	Password types.String `tfsdk:"password"`
@@ -55,20 +51,20 @@ type Data struct {
 }
 
 // Metadata describes the provider arguments.
-func (p *ObsProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
+func (p *ObjectScaleProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
 	resp.TypeName = "objectscale"
 	resp.Version = p.version
 }
 
 // Schema describes the provider arguments.
-func (p *ObsProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+func (p *ObjectScaleProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "The Terraform provider for Dell PowerScale can be used to interact with a Dell PowerScale array in order to manage the array resources.",
-		Description:         "The Terraform provider for Dell PowerScale can be used to interact with a Dell PowerScale array in order to manage the array resources.",
+		MarkdownDescription: "The Terraform provider for Dell Objectscale can be used to interact with a Dell Objectscale array in order to manage the array resources.",
+		Description:         "The Terraform provider for Dell Objectscale can be used to interact with a Dell Objectscale array in order to manage the array resources.",
 		Attributes: map[string]schema.Attribute{
 			"endpoint": schema.StringAttribute{
-				MarkdownDescription: "The API endpoint, ex. https://172.17.177.230:8080",
-				Description:         "The API endpoint, ex. https://172.17.177.230:8080",
+				MarkdownDescription: "The API endpoint, ex. https://10.225.100.1:4443",
+				Description:         "The API endpoint, ex. https://10.225.100.1:4443",
 				Required:            true,
 			},
 			"username": schema.StringAttribute{
@@ -98,8 +94,8 @@ func (p *ObsProvider) Schema(ctx context.Context, req provider.SchemaRequest, re
 }
 
 // Configure configures the provider.
-func (p *ObsProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
-	var data Data
+func (p *ObjectScaleProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	var data ObjectScaleProviderModel
 
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
@@ -108,11 +104,11 @@ func (p *ObsProvider) Configure(ctx context.Context, req provider.ConfigureReque
 	}
 
 	// Configuration values are now available.
-	obsClient, err := client.NewClient(
+	client, err := client.NewClient(
 		data.Endpoint.ValueString(),
-		data.Insecure.ValueBool(),
 		data.Username.ValueString(),
 		data.Password.ValueString(),
+		data.Insecure.ValueBool(),
 	)
 
 	if err != nil {
@@ -124,26 +120,28 @@ func (p *ObsProvider) Configure(ctx context.Context, req provider.ConfigureReque
 	}
 
 	// client configuration for data sources and resources
-	resp.DataSourceData = obsClient
-	resp.ResourceData = obsClient
+	resp.DataSourceData = client
+	resp.ResourceData = client
 }
 
 // Resources describes the provider resources.
-func (p *ObsProvider) Resources(ctx context.Context) []func() resource.Resource {
-	return []func() resource.Resource{}
+func (p *ObjectScaleProvider) Resources(ctx context.Context) []func() resource.Resource {
+	return []func() resource.Resource{
+		NewNamespaceResource,
+	}
 }
 
 // DataSources describes the provider data sources.
-func (p *ObsProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
+func (p *ObjectScaleProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewAccountDataSource,
+		NewNamespaceDataSource,
 	}
 }
 
 // New returns a new provider instance.
 func New(version string) func() provider.Provider {
 	return func() provider.Provider {
-		return &ObsProvider{
+		return &ObjectScaleProvider{
 			version: version,
 		}
 	}

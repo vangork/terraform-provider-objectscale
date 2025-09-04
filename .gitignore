@@ -1,6 +1,7 @@
 /objectscale-client
 terraform-provider-objectscale
 *.tfstate
+*.tfstate.backup
 .terraform/
 .terraform.lock.hcl
 terraform-provider-objectscale_*

@@ -41,7 +41,7 @@ uninstall:
 	rm -rf trace.*
 
 client-build: clean
-	git clone -b main https://github.com/vangork/objectscale-client.git
+	git clone -b ecs_4_0 https://github.com/vangork/objectscale-client.git
 	cd ./objectscale-client/c && cargo build --release
 
 clean:
