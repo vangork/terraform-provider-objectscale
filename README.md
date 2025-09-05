@@ -1,5 +1,6 @@
 # terraform-provider-objectscale
 
+The Terraform Provider for Dell Technologies (Dell) ObjectScale
 
 ### Installation from source code
 
