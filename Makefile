@@ -16,23 +16,41 @@ TEST?=$$(go list ./... | grep -v 'vendor')
 HOSTNAME=registry.terraform.io
 NAMESPACE=dell
 NAME=objectscale
-BINARY=terraform-provider-${NAME}
 VERSION=2.0.3
-OS_ARCH=linux_amd64
+
+ifeq ($(OS),Windows_NT)
+    MIRROR_DIR_PREFIX = $(APPDATA)/terraform.d
+    LIB_NAME = objectscale_client.dll
+    BINARY = terraform-provider-${NAME}.exe
+    OS_ARCH = windows_amd64
+else
+    OS_NAME := $(shell uname -s)
+    ifeq ($(OS_NAME),Darwin)
+        MIRROR_DIR_PREFIX = ~/.terraform.d
+        LIB_NAME = libobjectscale_client.dylib
+        BINARY = terraform-provider-${NAME}
+        OS_ARCH = darwin_amd64
+	else
+        MIRROR_DIR_PREFIX = ~/.terraform.d
+        LIB_NAME = libobjectscale_client.so
+        BINARY = terraform-provider-${NAME}
+        OS_ARCH = linux_amd64
+    endif
+endif
 
 default: install
 
 build:
 	go mod download
-	go build -o ${BINARY}
+	CGO_ENABLED=1 go build -o ${BINARY}
 
 install: uninstall build
-	mkdir -p ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
-	mv ${BINARY} ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
-	cp ./objectscale-client/target/release/libobjectscale_client.so ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
+	mkdir -p ${MIRROR_DIR_PREFIX}/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
+	mv ${BINARY} ${MIRROR_DIR_PREFIX}/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
+	cp ./objectscale-client/target/release/${LIB_NAME} ${MIRROR_DIR_PREFIX}/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
 
 uninstall:
-	rm -rfv ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
+	rm -rfv ${MIRROR_DIR_PREFIX}/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
 	find examples -type d -name ".terraform" -exec rm -rfv "{}" +;
 	find examples -type f -name "trace.*" -delete
 	find examples -type f -name "*.tfstate" -delete

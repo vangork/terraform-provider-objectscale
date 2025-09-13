@@ -1,5 +1,6 @@
 /objectscale-client
 terraform-provider-objectscale
+terraform-provider-objectscale.exe
 *.tfstate
 *.tfstate.backup
 .terraform/
